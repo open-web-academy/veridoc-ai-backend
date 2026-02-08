@@ -34,38 +34,47 @@ npm start
 
 Base URL: `http://localhost:3000/api/specialists`
 
-### Estructura de datos (POST)
+### Estructura de datos (POST) – campos en inglés
 
 ```json
 {
-  "nombre": "Dr. Juan Pérez",
-  "especialidad": "Medicina General",
-  "ubicacion": {
-    "ciudad": "Ciudad de México",
-    "estado": "CDMX"
+  "name": "Juan Pérez",
+  "professionalTitle": "Dr. Juan Pérez",
+  "specialty": "Cardiology",
+  "profileImageUrl": "https://storage.example.com/foto-perfil.jpg",
+  "biography": "Médico con amplia experiencia en cardiología...",
+  "yearsOfExperience": 15,
+  "consultationPrice": 500,
+  "languages": ["Español", "English"],
+  "location": {
+    "city": "Ciudad de México",
+    "state": "CDMX"
   },
-  "numeroCedula": "12345678",
-  "enlaceCedula": "https://storage.example.com/cedula.pdf",
-  "enlaceTitulo": "https://storage.example.com/titulo.pdf",
-  "estatus": "En Verificación",
-  "cuentaNearProtocol": "juan.near",
-  "identificadorCuenta": "abc123xyz"
+  "licenseNumber": "12345678",
+  "licenseDocumentUrl": "https://storage.example.com/cedula.pdf",
+  "degreeDocumentUrl": "https://storage.example.com/titulo.pdf",
+  "status": "Under Review",
+  "nearProtocolAccount": "juan.near",
+  "accountIdentifier": "abc123xyz"
 }
 ```
+
+Optional fields: `professionalTitle`, `profileImageUrl`, `biography`, `yearsOfExperience`, `consultationPrice`, `languages`. Specialty examples: Cardiology, Dermatology, etc.
 
 ### Endpoints
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/api/specialists` | Registrar nuevo especialista |
-| GET | `/api/specialists` | Listar todos (filtros: `?estatus=Verificado&especialidad=Medicina&ciudad=CDMX`) |
-| GET | `/api/specialists/identificador/:identificador` | Buscar por identificador de cuenta |
-| GET | `/api/specialists/:id` | Obtener por ID de MongoDB |
-| PATCH | `/api/specialists/:id/estatus` | Actualizar estatus (body: `{ "estatus": "Verificado" }`) |
-| PUT | `/api/specialists/:id` | Actualizar especialista completo |
-| DELETE | `/api/specialists/:id` | Eliminar especialista |
+| GET | `/api/specialists` | Listar todos (filtros: `?status=Verificado&specialty=Cardiology&city=CDMX`) |
+| GET | `/api/specialists/identifier/:identifier` | Find by account identifier |
+| GET | `/api/specialists/by-document-id/:id` | Get by MongoDB document _id |
+| GET | `/api/specialists/:id` | Get by privyWallet |
+| PATCH | `/api/specialists/:id/status` | Update status (body: `{ "status": "Verified" }`) |
+| PUT | `/api/specialists/:id` | Update specialist (by privyWallet) |
+| DELETE | `/api/specialists/:id` | Delete specialist |
 
-### Valores de estatus
+### Status values
 
-- `En Verificación`
-- `Verificado`
+- `Under Review`
+- `Verified`

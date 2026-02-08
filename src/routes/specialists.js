@@ -4,31 +4,35 @@ const {
   createSpecialist,
   getAllSpecialists,
   getSpecialistById,
+  getSpecialistByMongoId,
   getSpecialistByIdentificador,
   updateStatus,
   updateSpecialist,
   deleteSpecialist
 } = require('../controllers/specialistController');
 
-// POST - Registrar nuevo especialista
+// POST - Create specialist
 router.post('/', createSpecialist);
 
-// GET - Listar todos los especialistas (query: ?estatus=Verificado&especialidad=Medicina&ciudad=CDMX)
+// GET - List all specialists (query: ?status=Verified&specialty=Cardiology&city=CDMX)
 router.get('/', getAllSpecialists);
 
-// GET - Buscar por identificador de cuenta
-router.get('/identificador/:identificador', getSpecialistByIdentificador);
+// GET - Find by account identifier
+router.get('/identifier/:identifier', getSpecialistByIdentificador);
 
-// GET - Obtener especialista por ID
+// GET - Get specialist by MongoDB document _id
+router.get('/by-document-id/:id', getSpecialistByMongoId);
+
+// GET - Get specialist by privyWallet
 router.get('/:id', getSpecialistById);
 
-// PATCH - Actualizar solo el estatus
-router.patch('/:id/estatus', updateStatus);
+// PATCH - Update status only
+router.patch('/:id/status', updateStatus);
 
-// PUT - Actualizar especialista completo
+// PUT - Update specialist
 router.put('/:id', updateSpecialist);
 
-// DELETE - Eliminar especialista
+// DELETE - Delete specialist
 router.delete('/:id', deleteSpecialist);
 
 module.exports = router;

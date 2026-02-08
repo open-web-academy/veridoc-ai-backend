@@ -1,13 +1,15 @@
 const Specialist = require('../models/Specialist');
 
-// POST - Crear nuevo especialista
+const isValidMongoId = (id) => typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
+
+// POST - Create new specialist
 const createSpecialist = async (req, res) => {
   try {
     const specialist = await Specialist.create(req.body);
     res.status(201).json({
       success: true,
       data: specialist,
-      message: 'Especialista registrado correctamente'
+      message: 'Specialist registered successfully'
     });
   } catch (error) {
     if (error.name === 'ValidationError') {
@@ -19,21 +21,21 @@ const createSpecialist = async (req, res) => {
     }
     res.status(500).json({
       success: false,
-      message: 'Error al registrar el especialista',
+      message: 'Error registering specialist',
       error: error.message
     });
   }
 };
 
-// GET - Listar todos los especialistas (con filtros opcionales)
+// GET - List all specialists (with optional filters)
 const getAllSpecialists = async (req, res) => {
   try {
-    const { estatus, especialidad, ciudad } = req.query;
+    const { status, specialty, city } = req.query;
     const filter = {};
 
-    if (estatus) filter.estatus = estatus;
-    if (especialidad) filter.especialidad = new RegExp(especialidad, 'i');
-    if (ciudad) filter['ubicacion.ciudad'] = new RegExp(ciudad, 'i');
+    if (status) filter.status = status;
+    if (specialty) filter.specialty = new RegExp(specialty, 'i');
+    if (city) filter['location.city'] = new RegExp(city, 'i');
 
     const specialists = await Specialist.find(filter).sort({ createdAt: -1 });
     res.status(200).json({
@@ -44,21 +46,21 @@ const getAllSpecialists = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error al consultar especialistas',
+      message: 'Error fetching specialists',
       error: error.message
     });
   }
 };
 
-// GET - Obtener un especialista por ID
-const getSpecialistById = async (req, res) => {
+// GET - Get specialist by MongoDB document _id
+const getSpecialistByMongoId = async (req, res) => {
   try {
     const specialist = await Specialist.findById(req.params.id);
 
     if (!specialist) {
       return res.status(404).json({
         success: false,
-        message: 'Especialista no encontrado'
+        message: 'Specialist not found'
       });
     }
 
@@ -70,28 +72,64 @@ const getSpecialistById = async (req, res) => {
     if (error.name === 'CastError') {
       return res.status(400).json({
         success: false,
-        message: 'ID de especialista inválido'
+        message: 'Invalid document ID'
       });
     }
     res.status(500).json({
       success: false,
-      message: 'Error al consultar especialista',
+      message: 'Error fetching specialist',
       error: error.message
     });
   }
 };
 
-// GET - Obtener especialista por identificador de cuenta
+// GET - Get specialist by privyWallet (param :id is the privyWallet value)
+const getSpecialistById = async (req, res) => {
+  try {
+    const specialist = await Specialist.findOne({ privyWallet: req.params.id });
+
+    if (!specialist) {
+      return res.status(404).json({
+        success: false,
+        message: 'Specialist not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: specialist
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching specialist',
+      error: error.message
+    });
+  }
+};
+
+// GET - Get specialist by identifier (MongoDB _id, privyWallet, or accountIdentifier)
 const getSpecialistByIdentificador = async (req, res) => {
   try {
-    const specialist = await Specialist.findOne({
-      identificadorCuenta: req.params.identificador
-    });
+    const { identifier } = req.params;
+    let specialist = null;
+
+    if (isValidMongoId(identifier)) {
+      specialist = await Specialist.findById(identifier);
+    }
+    if (!specialist) {
+      specialist = await Specialist.findOne({
+        $or: [
+          { privyWallet: identifier },
+          { accountIdentifier: identifier }
+        ]
+      });
+    }
 
     if (!specialist) {
       return res.status(404).json({
         success: false,
-        message: 'Especialista no encontrado'
+        message: 'Specialist not found'
       });
     }
 
@@ -102,84 +140,116 @@ const getSpecialistByIdentificador = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error al consultar especialista',
+      message: 'Error fetching specialist',
       error: error.message
     });
   }
 };
 
-// PATCH - Actualizar estatus del especialista
+// Only allow "Verified" when both document URLs are present and non-empty
+const resolveStatus = (licenseUrl, degreeUrl, requestedStatus) => {
+  const hasLicense = licenseUrl && String(licenseUrl).trim() !== '';
+  const hasDegree = degreeUrl && String(degreeUrl).trim() !== '';
+  if (requestedStatus === 'Verified' && (!hasLicense || !hasDegree)) {
+    return 'Under Review';
+  }
+  return requestedStatus;
+};
+
+// Derive status only from document URLs: both present → Verified, otherwise → Under Review
+const statusFromDocumentUrls = (licenseUrl, degreeUrl) => {
+  const hasLicense = licenseUrl && String(licenseUrl).trim() !== '';
+  const hasDegree = degreeUrl && String(degreeUrl).trim() !== '';
+  return hasLicense && hasDegree ? 'Verified' : 'Under Review';
+};
+
+// PATCH - Update specialist status
 const updateStatus = async (req, res) => {
   try {
-    const { estatus } = req.body;
+    const { status } = req.body;
 
-    if (!estatus) {
+    if (!status) {
       return res.status(400).json({
         success: false,
-        message: 'El estatus es requerido'
+        message: 'Status is required'
       });
     }
 
-    if (!['En Verificación', 'Verificado'].includes(estatus)) {
+    if (!['Under Review', 'Verified'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Estatus inválido. Use: "En Verificación" o "Verificado"'
+        message: 'Invalid status. Use: "Under Review" or "Verified"'
       });
     }
+
+    const existing = await Specialist.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Specialist not found'
+      });
+    }
+
+    const effectiveStatus = resolveStatus(
+      existing.licenseDocumentUrl,
+      existing.degreeDocumentUrl,
+      status
+    );
 
     const specialist = await Specialist.findByIdAndUpdate(
       req.params.id,
-      { estatus },
+      { status: effectiveStatus },
       { new: true, runValidators: true }
     );
-
-    if (!specialist) {
-      return res.status(404).json({
-        success: false,
-        message: 'Especialista no encontrado'
-      });
-    }
 
     res.status(200).json({
       success: true,
       data: specialist,
-      message: 'Estatus actualizado correctamente'
+      message: 'Status updated successfully'
     });
   } catch (error) {
     if (error.name === 'CastError') {
       return res.status(400).json({
         success: false,
-        message: 'ID de especialista inválido'
+        message: 'Invalid specialist ID'
       });
     }
     res.status(500).json({
       success: false,
-      message: 'Error al actualizar estatus',
+      message: 'Error updating status',
       error: error.message
     });
   }
 };
 
-// PUT - Actualizar especialista completo
+// PUT - Update specialist (param :id is the privyWallet value)
 const updateSpecialist = async (req, res) => {
   try {
-    const specialist = await Specialist.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-
-    if (!specialist) {
+    console.log('req.params.id', req.params.id);
+    const existing = await Specialist.findOne({ privyWallet: req.params.id });
+    if (!existing) {
       return res.status(404).json({
         success: false,
-        message: 'Especialista no encontrado'
+        message: 'Specialist not found'
       });
     }
+
+    const body = { ...req.body };
+    const licenseUrl = body.licenseDocumentUrl ?? existing.licenseDocumentUrl;
+    const degreeUrl = body.degreeDocumentUrl ?? existing.degreeDocumentUrl;
+    // Always set status from document URLs: both present → Verified, otherwise → Under Review
+    body.status = statusFromDocumentUrls(licenseUrl, degreeUrl);
+
+    const specialist = await Specialist.findByIdAndUpdate(
+      existing._id,
+      body,
+      { new: true, runValidators: true }
+    );
 
     res.status(200).json({
       success: true,
       data: specialist,
-      message: 'Especialista actualizado correctamente'
+      message: 'Specialist updated successfully'
     });
   } catch (error) {
     if (error.name === 'ValidationError') {
@@ -189,21 +259,15 @@ const updateSpecialist = async (req, res) => {
         message: messages.join('. ')
       });
     }
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'ID de especialista inválido'
-      });
-    }
     res.status(500).json({
       success: false,
-      message: 'Error al actualizar especialista',
+      message: 'Error updating specialist',
       error: error.message
     });
   }
 };
 
-// DELETE - Eliminar especialista
+// DELETE - Delete specialist
 const deleteSpecialist = async (req, res) => {
   try {
     const specialist = await Specialist.findByIdAndDelete(req.params.id);
@@ -211,24 +275,24 @@ const deleteSpecialist = async (req, res) => {
     if (!specialist) {
       return res.status(404).json({
         success: false,
-        message: 'Especialista no encontrado'
+        message: 'Specialist not found'
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Especialista eliminado correctamente'
+      message: 'Specialist deleted successfully'
     });
   } catch (error) {
     if (error.name === 'CastError') {
       return res.status(400).json({
         success: false,
-        message: 'ID de especialista inválido'
+        message: 'Invalid specialist ID'
       });
     }
     res.status(500).json({
       success: false,
-      message: 'Error al eliminar especialista',
+      message: 'Error deleting specialist',
       error: error.message
     });
   }
@@ -238,6 +302,7 @@ module.exports = {
   createSpecialist,
   getAllSpecialists,
   getSpecialistById,
+  getSpecialistByMongoId,
   getSpecialistByIdentificador,
   updateStatus,
   updateSpecialist,

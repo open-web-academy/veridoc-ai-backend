@@ -1,60 +1,77 @@
 const mongoose = require('mongoose');
 
 const specialistSchema = new mongoose.Schema({
-  nombre: {
+  professionalTitle: {
     type: String,
-    required: [true, 'El nombre es requerido'],
-    trim: true
+    trim: true,
+    default: ''
   },
-  especialidad: {
+  specialty: {
     type: String,
-    required: [true, 'La especialidad es requerida'],
-    trim: true
+    trim: true,
+    default: ''
   },
-  ubicacion: {
-    ciudad: {
-      type: String,
-      required: [true, 'La ciudad es requerida'],
-      trim: true
-    },
-    estado: {
-      type: String,
-      required: [true, 'El estado es requerido'],
-      trim: true
-    }
-  },
-  numeroCedula: {
+  profileImageUrl: {
     type: String,
-    required: [true, 'El número de cédula es requerido'],
-    trim: true
+    trim: true,
+    default: ''
   },
-  enlaceCedula: {
+  biography: {
     type: String,
-    required: [true, 'El enlace de la cédula es requerido'],
-    trim: true
+    trim: true,
+    default: ''
   },
-  enlaceTitulo: {
-    type: String,
-    required: [true, 'El enlace del título es requerido'],
-    trim: true
+  yearsOfExperience: {
+    type: Number,
+    min: 0,
+    default: 0
   },
-  estatus: {
-    type: String,
-    enum: ['En Verificación', 'Verificado'],
-    default: 'En Verificación'
+  consultationPrice: {
+    type: Number,
+    min: 0,
+    default: 0
   },
-  cuentaNearProtocol: {
-    type: String,
-    required: [true, 'La cuenta de Near Protocol es requerida'],
-    trim: true
+  languages: {
+    type: [String],
+    default: []
   },
-  identificadorCuenta: {
+  licenseDocumentUrl: {
     type: String,
-    required: [true, 'El identificador de cuenta es requerido'],
-    trim: true
+    trim: true,
+    default: ''
+  },
+  degreeDocumentUrl: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  status: {
+    type: String,
+    enum: ['Under Review', 'Verified'],
+    default: 'Under Review'
+  },
+  nearAddress: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  privyWallet: {
+    type: String,
+    trim: true,
+    default: ''
   }
 }, {
   timestamps: true
+});
+
+// Only allow "Verified" when both document URLs are present and non-empty
+specialistSchema.pre('save', function (next) {
+  const hasLicense = this.licenseDocumentUrl && String(this.licenseDocumentUrl).trim() !== '';
+  const hasDegree = this.degreeDocumentUrl && String(this.degreeDocumentUrl).trim() !== '';
+  if (!hasLicense || !hasDegree) {
+    this.status = 'Under Review';
+  }
+  next();
 });
 
 module.exports = mongoose.model('Specialist', specialistSchema);
