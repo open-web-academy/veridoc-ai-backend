@@ -4,6 +4,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const connectDB = require('./config/db');
 const specialistRoutes = require('./routes/specialists');
+const consultationRoutes = require('./routes/consultations');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -18,7 +19,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+console.log("Registering /api/specialists...");
 app.use('/api/specialists', specialistRoutes);
+console.log("Registering /api/consultations...");
+app.use('/api/consultations', consultationRoutes);
+console.log("Routes registered.");
 
 // Health check
 app.get('/', (req, res) => {
@@ -27,6 +32,15 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       specialists: '/api/specialists',
+      consultations: {
+        base: '/api/consultations',
+        documentation: {
+          'POST /api/consultations': 'Create consultation',
+          'GET /api/consultations/specialist/:account': 'List consultations by specialist account',
+          'GET /api/consultations/:id': 'Get consultation by ID',
+          'PATCH /api/consultations/:id': 'Update consultation (status/comments)'
+        }
+      },
       documentation: {
         'POST /api/specialists': 'Create specialist',
         'GET /api/specialists': 'List specialists (?status, ?specialty, ?city)',
